@@ -5,7 +5,7 @@ from utils import remove_excess_spaces
 
 # Parse
 
-def convertRowToVector(row):
+def convert1CRowToVector(row):
     sender = row['Плательщик']
     receiver = row['Получатель']
     comment = row['НазначениеПлатежа']
@@ -15,13 +15,10 @@ def convertRowToVector(row):
     if 'Отражено по операции с картой' in comment and 'Покупка.' in comment:
         receiver = re.search(r'.+Покупка\. (.+)\..+', comment).groups()[0].strip()
 
-    sender = remove_excess_spaces(sender)
-    receiver = remove_excess_spaces(receiver)
-
     return {
         'Дата': row['ДатаПоступило'] or row['ДатаСписано'],
-        'Отправитель': sender,
-        'Получатель': receiver,
+        'Отправитель': remove_excess_spaces(sender),
+        'Получатель': remove_excess_spaces(receiver),
         'Объект': 'Деньги',
         'Цена за шт.': '1',
         'Сумма': row['Сумма'],
@@ -38,11 +35,11 @@ with open('input/kl_to_1c.txt', encoding='ansi') as f:
     while (line := f.readline()):
         line = line.strip()
         if line[:6] == "Секция":
-            row = { 'Тип': line[6:] }
+            row = { 'Секция': line[6:] }
         elif line[:5] == 'Конец':
             rows.append(row)
-            if row['Тип'] != "РасчСчет":
-                vectors.append(convertRowToVector(row))
+            if row['Секция'] != "РасчСчет":
+                vectors.append(convert1CRowToVector(row))
         elif row is not None:
             key, value = line.split('=')
             row[key] = value
