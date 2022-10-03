@@ -50,8 +50,8 @@ rows_df = pd.DataFrame(rows)
 vectors_df = pd.DataFrame(vectors)
 
 os.makedirs('output', exist_ok=True)
-rows_df.to_excel('output/output.xlsx', engine='xlsxwriter')
-vectors_df.to_excel('output/vectors.xlsx', engine='xlsxwriter')
+rows_df.to_excel('output/output.xlsx', engine='xlsxwriter', index=False)
+vectors_df.to_excel('output/vectors.xlsx', engine='xlsxwriter', index=False)
 
 print()
 print('Success')
