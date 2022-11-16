@@ -2,3 +2,4 @@ venv/
 input/
 output/
 **__pycache__
+maps/
