@@ -9,6 +9,7 @@ target_account = None
 row = None
 rows = None
 account_names = set()
+acc_res_names = {}
 total_sum = 0
 vectors = []
 faces = {}
@@ -17,9 +18,6 @@ objects = {}
 def cut_extension(filename):
     parts = filename.split('.')
     return '.'.join(parts[:-1]) if len(parts) > 1 else filename
-
-def make_transaction_hash(row):
-  return f'{row["ПлательщикРасчСчет"]}_{row["ПолучательРасчСчет"]}_{row["Номер"]}'
 
 def convert(filename, mapper = {}):
     global target_account
@@ -64,7 +62,7 @@ def convert(filename, mapper = {}):
             sender = 'Касса'
         if 'Отражено по операции с картой' in comment and 'Покупка.' in comment:
             receiver = re.search(r'.+Покупка\. (.+)\..+', comment).groups()[0].strip()
-            
+        
         if sender in mapper:
             sender = mapper[sender]
         if receiver in mapper:
@@ -77,10 +75,12 @@ def convert(filename, mapper = {}):
                 receiver += f' {receiver_acc}'
         if sender_acc == target_account:
             account_names.add(sender)
+            acc_res_names[sender_acc] = acc_name
             sender = acc_name
             total_sum -= Decimal(transaction_sum)
         else:
             account_names.add(receiver)
+            acc_res_names[receiver_acc] = acc_name
             receiver = acc_name
             total_sum += Decimal(transaction_sum)
 
@@ -94,7 +94,9 @@ def convert(filename, mapper = {}):
             'Верифицирован': 'Да',
             'Комментарий': normalize_string_field(comment),
             'Источник': 'Выписка 1С',
-            'transaction_hash': make_transaction_hash(row),
+            # info
+            'sender_acc': sender_acc,
+            'receiver_acc': receiver_acc,
         }
 
     with open(f'input/{filename}', encoding='ansi') as f:
@@ -141,12 +143,16 @@ def save_to_logos(filename, vectors, faces, objects):
     object_values = objects.values()
 
     vectors_df = pd.DataFrame(vectors)
-    vectors_df = vectors_df.drop_duplicates('transaction_hash', keep=False)
-    vectors_df = vectors_df.drop('transaction_hash', axis=1)
     vectors_df = vectors_df.sort_values('Дата')
     vectors_df[['Цена за шт.', 'Сумма']] \
       = vectors_df[['Цена за шт.', 'Сумма']].astype(float)
     vectors_df['Дата'] = pd.to_datetime(vectors_df['Дата'])
+    for acc, name in acc_res_names.items():
+      vectors_df.loc[vectors_df['receiver_acc'] == acc, 'Получатель'] = name
+      vectors_df.loc[vectors_df['sender_acc'] == acc, 'Отправитель'] = name
+    vectors_df = vectors_df.drop('receiver_acc', axis=1)
+    vectors_df = vectors_df.drop('sender_acc', axis=1)
+
     faces_df = pd.DataFrame(face_values)
     objects_df = pd.DataFrame(object_values)
 
@@ -165,22 +171,26 @@ def save_to_1c(filename, rows):
 all_vectors = []
 all_objects = {}
 all_faces = {}
+
+logos_excels = []
+
 for filename in os.listdir('input/'):
+    prev_acc_res_names = acc_res_names.copy()
     convert(filename, mapper)
 
-    all_vectors += vectors
+    all_vectors += list(filter(lambda v: (v['receiver_acc'] not in prev_acc_res_names and v['sender_acc'] not in prev_acc_res_names), vectors))
     all_faces.update(faces)
     all_objects.update(objects)
 
     os.makedirs('output', exist_ok=True)
     save_to_1c(filename, rows)
-    save_to_logos(filename, vectors, faces, objects)
+    logos_excels.append((filename, vectors, faces, objects))
 
     print('Сумма:', total_sum)
     print('Имена РС:', account_names)
     print()
 
-# Delete duplicates
-
+for le in logos_excels:
+  save_to_logos(*le)
 
 save_to_logos('все_и_сразу', all_vectors, all_faces, all_objects)
