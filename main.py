@@ -1,11 +1,9 @@
-from datetime import date
 from decimal import Decimal
 import re
 import os
-from sqlite3 import Date
 import sys
 import pandas as pd
-from utils import formatDate, normalize_facename
+from utils import formatDate, normalize_facename, normalize_string_field
 
 target_account = None
 row = None
@@ -86,7 +84,7 @@ def convert(filename, mappath = None):
             'Цена за шт.': '1',
             'Сумма': transaction_sum,
             'Верифицирован': 'Да',
-            'Комментарий': comment,
+            'Комментарий': normalize_string_field(comment),
             'Источник': 'Выписка 1С',
         }
 
