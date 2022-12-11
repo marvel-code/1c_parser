@@ -5,6 +5,7 @@ import sys
 import pandas as pd
 from utils import formatDate, normalize_facename, normalize_string_field
 
+start_balance = 0
 target_account = None
 row = None
 rows = None
@@ -33,6 +34,7 @@ def convert(filename, mapper = {}):
     row = None
     account_names = set()
     total_sum = 0
+    start_balance = None
     vectors = []
     faces = {}
     objects = {}
@@ -44,6 +46,7 @@ def convert(filename, mapper = {}):
 
     def convert1CRowToVector(row):
         global total_sum
+        global start_balance
 
         acc_name = f'РС_{filename}'
 
@@ -105,10 +108,14 @@ def convert(filename, mapper = {}):
             global target_account
             global row
             global rows
+            global start_balance
             line = line.strip()
             if target_account is None and line[:len('РасчСчет')] == 'РасчСчет':
                 target_account = line[len('РасчСчет')+1:]
                 print('РасчСчет', target_account)
+            if line[:len('НачальныйОстаток')] == 'НачальныйОстаток': 
+              start_balance = Decimal(line[len('НачальныйОстаток')+1:])
+              print('НачальныйОстаток', start_balance)
             elif line[:6] == "Секция":
                 row = { 'Секция': line[6:] }
             elif row is not None:
@@ -187,6 +194,7 @@ for filename in os.listdir('input/'):
     logos_excels.append((filename, vectors, faces, objects))
 
     print('Сумма:', total_sum)
+    print('Остаток:', start_balance + total_sum)
     print('Имена РС:', account_names)
     print()
 
