@@ -133,17 +133,7 @@ except:
     mapper = {}
 print()
 
-for filename in os.listdir('input/'):
-    convert(filename, mapper)
-    
-    # Save
-    os.makedirs('output', exist_ok=True)
-    
-    # Save 1c
-    rows_df = pd.DataFrame(rows)
-    rows_df.to_excel(f'output/1c_{cut_extension(filename)}.xlsx', engine='xlsxwriter', index=False)
-
-    # Save logos
+def save_to_logos(filename, vectors, faces, objects):
     vectors_df = pd.DataFrame(vectors)
     faces_df = pd.DataFrame(faces.values())
     objects_df = pd.DataFrame(objects.values())
@@ -153,6 +143,31 @@ for filename in os.listdir('input/'):
     objects_df.to_excel(writer, index=False, sheet_name='Объекты')
     writer.save()
 
+def save_to_1c(filename, rows):
+    rows_df = pd.DataFrame(rows)
+    rows_df.to_excel(f'output/1c_{cut_extension(filename)}.xlsx', engine='xlsxwriter', index=False)
+
+
+
+all_vectors = []
+all_objects = {}
+all_faces = {}
+for filename in os.listdir('input/'):
+    convert(filename, mapper)
+
+    all_vectors += vectors
+    all_faces.update(faces)
+    all_objects.update(objects)
+    
+    os.makedirs('output', exist_ok=True)
+    save_to_1c(filename, rows)
+    save_to_logos(filename, vectors, faces, objects)
+
     print('Сумма:', total_sum)
     print('Имена РС:', account_names)
     print()
+
+# Delete duplicates
+# ...
+
+save_to_logos('все_и_сразу', all_vectors, all_faces, all_objects)
