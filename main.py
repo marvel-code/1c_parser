@@ -18,6 +18,9 @@ def cut_extension(filename):
     parts = filename.split('.')
     return '.'.join(parts[:-1]) if len(parts) > 1 else filename
 
+def make_transaction_hash(row):
+  return f'{row["ПлательщикРасчСчет"]}_{row["ПолучательРасчСчет"]}_{row["Номер"]}'
+
 def convert(filename, mapper = {}):
     global target_account
     global row
@@ -57,7 +60,6 @@ def convert(filename, mapper = {}):
         if not sender or not receiver:
             print(sender, receiver)
 
-
         if 'Взнос наличных через АТМ' in comment:
             sender = 'Касса'
         if 'Отражено по операции с картой' in comment and 'Покупка.' in comment:
@@ -92,6 +94,7 @@ def convert(filename, mapper = {}):
             'Верифицирован': 'Да',
             'Комментарий': normalize_string_field(comment),
             'Источник': 'Выписка 1С',
+            'transaction_hash': make_transaction_hash(row),
         }
 
     with open(f'input/{filename}', encoding='ansi') as f:
@@ -134,9 +137,19 @@ except:
 print()
 
 def save_to_logos(filename, vectors, faces, objects):
+    face_values = faces.values()
+    object_values = objects.values()
+
     vectors_df = pd.DataFrame(vectors)
-    faces_df = pd.DataFrame(faces.values())
-    objects_df = pd.DataFrame(objects.values())
+    vectors_df = vectors_df.drop_duplicates('transaction_hash', keep=False)
+    vectors_df = vectors_df.drop('transaction_hash', axis=1)
+    vectors_df = vectors_df.sort_values('Дата')
+    vectors_df[['Цена за шт.', 'Сумма']] \
+      = vectors_df[['Цена за шт.', 'Сумма']].astype(float)
+    vectors_df['Дата'] = pd.to_datetime(vectors_df['Дата'])
+    faces_df = pd.DataFrame(face_values)
+    objects_df = pd.DataFrame(object_values)
+
     writer = pd.ExcelWriter(f'output/logos_{cut_extension(filename)}.xlsx', engine='xlsxwriter')
     vectors_df.to_excel(writer, index=False, sheet_name='Векторы')
     faces_df.to_excel(writer, index=False, sheet_name='Лица')
@@ -158,7 +171,7 @@ for filename in os.listdir('input/'):
     all_vectors += vectors
     all_faces.update(faces)
     all_objects.update(objects)
-    
+
     os.makedirs('output', exist_ok=True)
     save_to_1c(filename, rows)
     save_to_logos(filename, vectors, faces, objects)
@@ -168,6 +181,6 @@ for filename in os.listdir('input/'):
     print()
 
 # Delete duplicates
-# ...
+
 
 save_to_logos('все_и_сразу', all_vectors, all_faces, all_objects)
