@@ -10,6 +10,9 @@ row = None
 rows = None
 account_names = set()
 total_sum = 0
+vectors = []
+faces = {}
+objects = {}
 
 def cut_extension(filename):
     parts = filename.split('.')
@@ -21,6 +24,9 @@ def convert(filename, mappath = None):
     global rows
     global total_sum
     global account_names
+    global vectors
+    global faces
+    global objects
     
     try:
         df = pd.read_csv(mappath, header=None, sep='\t')
@@ -30,8 +36,14 @@ def convert(filename, mappath = None):
         print('Empty mapper')
         mapper = {}
 
+    rows = []
+    row = None
     account_names = set()
     total_sum = 0
+    vectors = []
+    faces = {}
+    objects = {}
+    objects["Деньги"] = { "Объект": "Деньги", "Ед.измерения": "руб" }
 
     # Parse
 
@@ -88,13 +100,7 @@ def convert(filename, mappath = None):
             'Источник': 'Выписка 1С',
         }
 
-    vectors = []
-    faces = {}
-    objects = {}
-    objects["Деньги"] = { "Объект": "Деньги", "Ед.измерения": "руб" }
     with open(f'input/{filename}', encoding='ansi') as f:
-        rows = []
-        row = None
         f.readline()
         def parseLine(line: str):
             global target_account
@@ -122,19 +128,20 @@ def convert(filename, mappath = None):
         while line := f.readline():
             parseLine(line)
 
+for filename in os.listdir('input/'):
+    faces, objects, vectors = convert(filename, sys.argv[1] if 1 < len(sys.argv) else None)
+    
     # Save
-
+    os.makedirs('output', exist_ok=True)
+    
+    # Save 1c
     rows_df = pd.DataFrame(rows)
+    rows_df.to_excel(f'output/1c_{cut_extension(filename)}.xlsx', engine='xlsxwriter', index=False)
+
+    # Save logos
     vectors_df = pd.DataFrame(vectors)
     faces_df = pd.DataFrame(faces.values())
     objects_df = pd.DataFrame(objects.values())
-
-    os.makedirs('output', exist_ok=True)
-    
-    # 1c
-    rows_df.to_excel(f'output/1c_{cut_extension(filename)}.xlsx', engine='xlsxwriter', index=False)
-
-    # logos
     writer = pd.ExcelWriter(f'output/logos_{cut_extension(filename)}.xlsx', engine='xlsxwriter')
     vectors_df.to_excel(writer, index=False, sheet_name='Векторы')
     faces_df.to_excel(writer, index=False, sheet_name='Лица')
@@ -144,6 +151,3 @@ def convert(filename, mappath = None):
     print('Сумма:', total_sum)
     print('Имена РС:', account_names)
     print()
-
-for filename in os.listdir('input/'):
-    convert(filename, sys.argv[1] if 1 < len(sys.argv) else None)
