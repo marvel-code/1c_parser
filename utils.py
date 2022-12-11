@@ -19,11 +19,13 @@ def bank_normalize(facename):
     OOO = 'OOO|ООО|Общество с ограниченной ответственностью'
     m = re.search(f'^(?:{OOO}) (.+)|(.+) (?:{OOO})$', s, re.IGNORECASE)
     if m: s = 'ООО ' + list(filter(lambda x: x, m.groups()))[0]
+    s = s.upper()
     return s
   def normalize_ip(s):
     IP = 'ИП|Индивидуальный предприниматель'
     m = re.search(f'^(?:{IP}) (.+)|(.+) (?:{IP})$', s, re.IGNORECASE)
     if m: s = 'ИП ' + list(filter(lambda x: x, m.groups()))[0]
+    s = s.upper()
     return s
   
   facename = normalize_fio(facename)
