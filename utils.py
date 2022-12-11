@@ -5,21 +5,33 @@ def remove_excess_spaces(string):
     return re.sub(' +', ' ', string).strip()
 
 def bank_normalize(facename):
-  def normalize_ooo(s):
-    OOO = 'OOO|ООО|Общество с ограниченной ответственностью'
-    m = re.search(f'^(?:{OOO}) (.+)|(.+) (?:{OOO})$', s, re.IGNORECASE)
-    if m: s = 'ООО ' + list(filter(lambda x: x, m.groups()))[0]
-    return s
   def normalize_fio(s):
     FIORE = '[а-яa-zё\-]+ [а-яa-zё\-]+ [а-яa-zё\-]+'
     m = re.search(f'//({FIORE})//|^({FIORE})$|^({FIORE}) ?/|ИНН \d+ ({FIORE})$|ИНН \d+ ({FIORE})\s?/', s, re.IGNORECASE)
     if m: s = list(filter(lambda x: x, m.groups()))[0].title()
     return s
-
-  facename = normalize_ooo(facename)
+  def normalize_inn(s):
+    INN = 'ИНН \d+\s+(.+)'
+    m = re.search(INN, s, re.IGNORECASE)
+    if m: s = list(filter(lambda x: x, m.groups()))[0]
+    return s
+  def normalize_ooo(s):
+    OOO = 'OOO|ООО|Общество с ограниченной ответственностью'
+    m = re.search(f'^(?:{OOO}) (.+)|(.+) (?:{OOO})$', s, re.IGNORECASE)
+    if m: s = 'ООО ' + list(filter(lambda x: x, m.groups()))[0]
+    return s
+  def normalize_ip(s):
+    IP = 'ИП|Индивидуальный предприниматель'
+    m = re.search(f'^(?:{IP}) (.+)|(.+) (?:{IP})$', s, re.IGNORECASE)
+    if m: s = 'ИП ' + list(filter(lambda x: x, m.groups()))[0]
+    return s
+  
   facename = normalize_fio(facename)
+  facename = normalize_inn(facename)
+  facename = normalize_ooo(facename)
+  facename = normalize_ip(facename)
   return facename
-    
+
 def normalize_string_field(field):
   field = remove_excess_spaces(field)
   field = re.sub(r'[\\/\'"]', '', field)

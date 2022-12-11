@@ -18,7 +18,7 @@ def cut_extension(filename):
     parts = filename.split('.')
     return '.'.join(parts[:-1]) if len(parts) > 1 else filename
 
-def convert(filename, mappath = None):
+def convert(filename, mapper = {}):
     global target_account
     global row
     global rows
@@ -27,14 +27,6 @@ def convert(filename, mappath = None):
     global vectors
     global faces
     global objects
-    
-    try:
-        df = pd.read_csv(mappath, header=None, sep='\t')
-        print(df)
-        mapper = pd.Series(df[1].values, index=df[0]).to_dict()
-    except:
-        print('Empty mapper')
-        mapper = {}
 
     rows = []
     row = None
@@ -51,6 +43,8 @@ def convert(filename, mappath = None):
 
     def convert1CRowToVector(row):
         global total_sum
+
+        acc_name = f'РС_{filename}'
 
         date = row['ДатаПоступило'] if ('ДатаПоступило' in row and row['ДатаПоступило']) else row['ДатаСписано']
         sender = row.get('Плательщик', None) or row['Плательщик1']
@@ -81,11 +75,11 @@ def convert(filename, mappath = None):
                 receiver += f' {receiver_acc}'
         if sender_acc == target_account:
             account_names.add(sender)
-            sender = 'РС'
+            sender = acc_name
             total_sum -= Decimal(transaction_sum)
         else:
             account_names.add(receiver)
-            receiver = 'РС'
+            receiver = acc_name
             total_sum += Decimal(transaction_sum)
 
         return {
@@ -127,9 +121,20 @@ def convert(filename, mappath = None):
                     row[key] = value
         while line := f.readline():
             parseLine(line)
+            
+    
+try:
+    mappath = sys.argv[1] if 1 < len(sys.argv) else None
+    df = pd.read_csv(mappath, header=None, sep='\t')
+    print(df)
+    mapper = pd.Series(df[1].values, index=df[0]).to_dict()
+except:
+    print('Empty mapper')
+    mapper = {}
+print()
 
 for filename in os.listdir('input/'):
-    faces, objects, vectors = convert(filename, sys.argv[1] if 1 < len(sys.argv) else None)
+    convert(filename, mapper)
     
     # Save
     os.makedirs('output', exist_ok=True)
