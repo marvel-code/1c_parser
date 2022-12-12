@@ -145,7 +145,23 @@ except:
     mapper = {}
 print()
 
+def print_balance_by_transactions(filename, vectors, target_acc):
+  rows = []
+  balance = 0
+  for v in vectors:
+    if v['receiver_acc'] == str(target_acc):
+      balance += Decimal(v['Сумма'])
+    elif v['sender_acc'] == str(target_acc):
+      balance -= Decimal(v['Сумма'])
+    rows.append(dict(list(v.items()) + list({ 'balance': float(balance) }.items())))
+  
+  df = pd.DataFrame(rows)
+  df.to_excel(f'output/1c_{cut_extension(filename)}_остатки.xlsx', engine='xlsxwriter', index=False)
+
+
 def save_to_logos(filename, vectors, faces, objects):
+    print_balance_by_transactions(filename, vectors, 40702810301500121718)
+
     face_values = faces.values()
     object_values = objects.values()
 
