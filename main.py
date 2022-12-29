@@ -5,7 +5,7 @@ import sys
 import pandas as pd
 from utils import formatDate, normalize_facename, normalize_string_field
 
-start_balance = 0
+start_balance = None
 target_account = None
 row = None
 rows = None
@@ -29,6 +29,7 @@ def convert(filename, mapper = {}):
     global vectors
     global faces
     global objects
+    global start_balance
 
     rows = []
     row = None
@@ -113,7 +114,7 @@ def convert(filename, mapper = {}):
             if target_account is None and line[:len('РасчСчет')] == 'РасчСчет':
                 target_account = line[len('РасчСчет')+1:]
                 print('РасчСчет', target_account)
-            if line[:len('НачальныйОстаток')] == 'НачальныйОстаток': 
+            if start_balance is None and line[:len('НачальныйОстаток')] == 'НачальныйОстаток': 
               start_balance = Decimal(line[len('НачальныйОстаток')+1:])
               print('НачальныйОстаток', start_balance)
             elif line[:6] == "Секция":
@@ -129,7 +130,8 @@ def convert(filename, mapper = {}):
                             faces[vector['Получатель']] = { 'Лицо': vector['Получатель'] }
                     row = None
                 else:
-                    key, value = line.split('=')
+                    delimiter_index = line.find('=')
+                    key, value = line[:delimiter_index], line[delimiter_index+1:]
                     row[key] = value
         while line := f.readline():
             parseLine(line)
