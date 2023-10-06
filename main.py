@@ -6,6 +6,8 @@ import pandas as pd
 from utils import formatDate, normalize_facename, normalize_string_field
 
 start_balance = None
+start_date = None
+end_date = None
 target_account = None
 row = None
 rows = None
@@ -30,6 +32,8 @@ def convert(filename, mapper = {}):
     global faces
     global objects
     global start_balance
+    global start_date
+    global end_date
 
     rows = []
     row = None
@@ -44,6 +48,8 @@ def convert(filename, mapper = {}):
     # Parse
 
     target_account = None
+    start_date = None
+    end_date = None
 
     def convert1CRowToVector(row):
         global total_sum
@@ -51,7 +57,7 @@ def convert(filename, mapper = {}):
 
         acc_name = f'РС_{filename}'
 
-        date = row['ДатаПоступило'] if ('ДатаПоступило' in row and row['ДатаПоступило']) else row['ДатаСписано']
+        date = row.get('ДатаПоступило', row.get('ДатаКонца', None)) or row.get('ДатаСписано', row.get('ДатаНачала', None)) # мб ДатаНачала ДатаКонца не нужно, тк относится к секции, а не транзакции
         sender = row.get('Плательщик', None) or row['Плательщик1']
         sender_acc = row['ПлательщикСчет']
         receiver = row.get('Получатель', None) or row['Получатель1']
@@ -110,10 +116,19 @@ def convert(filename, mapper = {}):
             global row
             global rows
             global start_balance
+            global start_date
+            global end_date
             line = line.strip()
             if target_account is None and line[:len('РасчСчет')] == 'РасчСчет':
                 target_account = line[len('РасчСчет')+1:]
                 print('РасчСчет', target_account)
+            if start_date is None and line[:len('ДатаНачала')] == "ДатаНачала":
+                start_date = line[len('ДатаНачала')+1:]
+                print('ДатаНачала', start_date)
+            if end_date is None and line[:len('ДатаКонца')] == "ДатаКонца":
+                end_date = line[len('ДатаКонца')+1:]
+                print('ДатаКонца', end_date)
+                
             if start_balance is None and line[:len('НачальныйОстаток')] == 'НачальныйОстаток': 
               start_balance = Decimal(line[len('НачальныйОстаток')+1:])
               print('НачальныйОстаток', start_balance)
@@ -162,7 +177,7 @@ def print_balance_by_transactions(filename, vectors, target_acc):
 
 
 def save_to_logos(filename, vectors, faces, objects):
-    print_balance_by_transactions(filename, vectors, 40702810301500121718)
+    # print_balance_by_transactions(filename, vectors, 40702810301500121718)
 
     face_values = faces.values()
     object_values = objects.values()
@@ -209,8 +224,10 @@ for filename in os.listdir('input/'):
 
     os.makedirs('output', exist_ok=True)
     save_to_1c(filename, rows)
-    logos_excels.append((filename, vectors, faces, objects))
+    if len(vectors) > 0:
+      logos_excels.append((filename, vectors, faces, objects))
 
+    print(filename)
     print('Сумма:', total_sum)
     print('Остаток:', start_balance + total_sum)
     print('Имена РС:', account_names)
