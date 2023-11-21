@@ -200,7 +200,7 @@ def save_to_logos(filename, vectors, faces, objects):
     vectors_df.to_excel(writer, index=False, sheet_name='Векторы')
     faces_df.to_excel(writer, index=False, sheet_name='Лица')
     objects_df.to_excel(writer, index=False, sheet_name='Объекты')
-    writer.save()
+    writer.close()
 
 def save_to_1c(filename, rows):
     rows_df = pd.DataFrame(rows)
