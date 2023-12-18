@@ -8,7 +8,7 @@ from utils import formatDate, normalize_facename, normalize_string_field
 start_balance = None
 start_date = None
 end_date = None
-target_account = None
+target_acc = None
 row = None
 rows = None
 account_names = set()
@@ -18,12 +18,15 @@ vectors = []
 faces = {}
 objects = {}
 
+def make_acc_id(inn, acc):
+    return f"{inn}_{acc}"
+
 def cut_extension(filename):
     parts = filename.split('.')
     return '.'.join(parts[:-1]) if len(parts) > 1 else filename
 
 def convert(filename, mapper = {}):
-    global target_account
+    global target_acc
     global row
     global rows
     global total_sum
@@ -47,57 +50,103 @@ def convert(filename, mapper = {}):
 
     # Parse
 
-    target_account = None
+    target_acc = None
     start_date = None
     end_date = None
+
+    def fetch_sender_and_receiver(row, target_acc_name):
+        sender_acc = row['ПлательщикСчет']
+        sender_inn = row['ПлательщикИНН']
+        receiver_acc = row['ПолучательСчет']
+        receiver_inn = row['ПолучательИНН']
+        sender_id = make_acc_id(sender_inn, sender_acc)
+        receiver_id = make_acc_id(receiver_inn, receiver_acc)
+        comment = row['НазначениеПлатежа']
+
+        sender = acc_res_names.get(sender_id, None)
+        if sender_acc == target_acc and sender != target_acc_name:
+          acc_res_names[sender_id] = target_acc_name
+          sender = target_acc_name
+        receiver = acc_res_names.get(receiver_id, None)
+        if receiver_acc == target_acc and receiver != target_acc_name:
+          acc_res_names[receiver_id] = target_acc_name
+          receiver = target_acc_name
+
+        if not sender:
+          sender = row.get('Плательщик', None) or row['Плательщик1']
+
+          # Exception
+          if not sender :
+            print('not sender :', sender)
+          
+          # Use mapper
+          if sender in mapper:
+              sender = mapper[sender]
+
+          # Parse comment
+          if 'Взнос наличных через АТМ' in comment:
+              sender = 'Касса'
+
+          # Parse target account
+          if sender_acc == target_acc:
+              account_names.add(sender)
+              if sender_id not in acc_res_names:
+                acc_res_names[sender_id] = target_acc_name
+              sender = acc_res_names[sender_id]
+
+          sender = normalize_facename(sender)
+          acc_res_names[sender_id] = sender
+        if not receiver:
+          receiver = row.get('Получатель', None) or row['Получатель1']
+
+          # Exception
+          if  not receiver:
+            print('not sender or receiver:', sender, receiver)
+          
+          # Use mapper
+          if receiver in mapper:
+              receiver = mapper[receiver]
+
+          # Parse comment
+          if 'Отражено по операции с картой' in comment and 'Покупка.' in comment:
+              receiver = re.search(r'.+Покупка\. (.+)\..+', comment).groups()[0].strip()
+
+          # Parse target account
+          if sender_acc != target_acc:
+              account_names.add(receiver)
+              if receiver_id not in acc_res_names:
+                acc_res_names[receiver_id] = target_acc_name
+              receiver = acc_res_names[receiver_id]
+
+          receiver = normalize_facename(receiver)
+          acc_res_names[receiver_id] = receiver
+          
+        if sender == receiver:
+          raise 'sender == receiver'
+
+        comment += f'. Плательщик: {sender}. Получатель: {receiver}'
+        return sender, sender_inn, sender_acc, receiver, receiver_inn, receiver_acc, comment
 
     def convert1CRowToVector(row):
         global total_sum
         global start_balance
 
-        acc_name = f'РС_{filename}'
+        target_acc_name = f'РС_{cut_extension(filename)}'
 
         date = row.get('ДатаПоступило', row.get('ДатаКонца', None)) or row.get('ДатаСписано', row.get('ДатаНачала', None)) # мб ДатаНачала ДатаКонца не нужно, тк относится к секции, а не транзакции
-        sender = row.get('Плательщик', None) or row['Плательщик1']
-        sender_acc = row['ПлательщикСчет']
-        receiver = row.get('Получатель', None) or row['Получатель1']
-        receiver_acc = row['ПолучательСчет']
         transaction_sum = row['Сумма']
-        comment = row['НазначениеПлатежа'] + f'. Плательщик: {sender}. Получатель: {receiver}'
+        sender, sender_inn, sender_acc, receiver, receiver_inn, receiver_acc, comment = fetch_sender_and_receiver(row, target_acc_name)
 
-        if not sender or not receiver:
-            print(sender, receiver)
-
-        if 'Взнос наличных через АТМ' in comment:
-            sender = 'Касса'
-        if 'Отражено по операции с картой' in comment and 'Покупка.' in comment:
-            receiver = re.search(r'.+Покупка\. (.+)\..+', comment).groups()[0].strip()
-        
-        if sender in mapper:
-            sender = mapper[sender]
-        if receiver in mapper:
-            receiver = mapper[receiver]
-
-        if sender == receiver: 
-            if sender_acc != target_account:
-                sender += f' {sender_acc}'
-            else:
-                receiver += f' {receiver_acc}'
-        if sender_acc == target_account:
-            account_names.add(sender)
-            acc_res_names[sender_acc] = acc_name
-            sender = acc_name
+        # total_sum upd
+        if sender_acc == target_acc:
             total_sum -= Decimal(transaction_sum)
         else:
-            account_names.add(receiver)
-            acc_res_names[receiver_acc] = acc_name
-            receiver = acc_name
             total_sum += Decimal(transaction_sum)
 
         return {
             'Дата': formatDate(date),
-            'Отправитель': normalize_facename(sender),
-            'Получатель': normalize_facename(receiver),
+            'Отправитель': sender,
+            'Получатель': receiver,
             'Объект': 'Деньги',
             'Цена за шт.': '1',
             'Сумма': transaction_sum,
@@ -107,21 +156,23 @@ def convert(filename, mapper = {}):
             # info
             'sender_acc': sender_acc,
             'receiver_acc': receiver_acc,
+            'sender_id': make_acc_id(sender_inn, sender_acc),
+            'receiver_id': make_acc_id(receiver_inn, receiver_acc),
         }
 
     with open(f'input/{filename}', encoding='ansi') as f:
         f.readline()
         def parseLine(line: str):
-            global target_account
+            global target_acc
             global row
             global rows
             global start_balance
             global start_date
             global end_date
             line = line.strip()
-            if target_account is None and line[:len('РасчСчет')] == 'РасчСчет':
-                target_account = line[len('РасчСчет')+1:]
-                print('РасчСчет', target_account)
+            if target_acc is None and line[:len('РасчСчет')] == 'РасчСчет':
+                target_acc = line[len('РасчСчет')+1:]
+                print('РасчСчет', target_acc)
             if start_date is None and line[:len('ДатаНачала')] == "ДатаНачала":
                 start_date = line[len('ДатаНачала')+1:]
                 print('ДатаНачала', start_date)
@@ -157,8 +208,9 @@ try:
     df = pd.read_csv(mappath, header=None, sep='\t')
     print(df)
     mapper = pd.Series(df[1].values, index=df[0]).to_dict()
-except:
+except Exception as ex:
     print('Empty mapper')
+    print(ex)
     mapper = {}
 print()
 
@@ -187,11 +239,13 @@ def save_to_logos(filename, vectors, faces, objects):
     vectors_df[['Цена за шт.', 'Сумма']] \
       = vectors_df[['Цена за шт.', 'Сумма']].astype(float)
     vectors_df['Дата'] = pd.to_datetime(vectors_df['Дата'])
-    for acc, name in acc_res_names.items():
-      vectors_df.loc[vectors_df['receiver_acc'] == acc, 'Получатель'] = name
-      vectors_df.loc[vectors_df['sender_acc'] == acc, 'Отправитель'] = name
+    for acc_id, name in acc_res_names.items():
+      vectors_df.loc[vectors_df['receiver_id'] == acc_id, 'Получатель'] = name
+      vectors_df.loc[vectors_df['sender_id'] == acc_id, 'Отправитель'] = name
     vectors_df = vectors_df.drop('receiver_acc', axis=1)
     vectors_df = vectors_df.drop('sender_acc', axis=1)
+    vectors_df = vectors_df.drop('receiver_id', axis=1)
+    vectors_df = vectors_df.drop('sender_id', axis=1)
 
     faces_df = pd.DataFrame(face_values)
     objects_df = pd.DataFrame(object_values)
@@ -223,9 +277,9 @@ for filename in os.listdir('input/'):
     all_objects.update(objects)
 
     os.makedirs('output', exist_ok=True)
-    save_to_1c(filename, rows)
-    if len(vectors) > 0:
-      logos_excels.append((filename, vectors, faces, objects))
+    # save_to_1c(filename, rows)
+    # if len(vectors) > 0:
+    #   logos_excels.append((filename, vectors, faces, objects))
 
     print(filename)
     print('Сумма:', total_sum)
@@ -233,7 +287,7 @@ for filename in os.listdir('input/'):
     print('Имена РС:', account_names)
     print()
 
-for le in logos_excels:
-  save_to_logos(*le)
+# for le in logos_excels:
+#   save_to_logos(*le)
 
 save_to_logos('все_и_сразу', all_vectors, all_faces, all_objects)

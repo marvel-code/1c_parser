@@ -1,3 +1,2 @@
-set /p "map=Enter map filename: "
-python main.py input/%map%
+python main.py map.txt
 pause

@@ -18,19 +18,33 @@ def bank_normalize(facename):
   def normalize_ooo(s):
     OOO = 'OOO|ООО|Общество с ограниченной ответственностью'
     m = re.search(f'^(?:{OOO}) (.+)|(.+) (?:{OOO})$', s, re.IGNORECASE)
-    if m: s = 'ООО ' + list(filter(lambda x: x, m.groups()))[0].upper()
+    if m: s = list(filter(lambda x: x, m.groups()))[0].upper() + ' ООО'
     return s
   def normalize_ip(s):
     IP = 'ИП|Индивидуальный предприниматель'
     m = re.search(f'^(?:{IP}) (.+)|(.+) (?:{IP})$', s, re.IGNORECASE)
-    if m: s = 'ИП ' + list(filter(lambda x: x, m.groups()))[0].upper()
+    if m: s = list(filter(lambda x: x, m.groups()))[0].title() + ' ИП'
     return s
+  def normalize_pao(s):
+    IP = 'ПАО|Публичное акционерное общество'
+    m = re.search(f'^(?:{IP}) (.+)|(.+) (?:{IP})$', s, re.IGNORECASE)
+    if m: s = list(filter(lambda x: x, m.groups()))[0].upper() + ' ПАО'
+    return s
+  def normalize_ao(s):
+    IP = 'АО|Акционерное общество'
+    m = re.search(f'^(?:{IP}) (.+)|(.+) (?:{IP})$', s, re.IGNORECASE)
+    if m: s = list(filter(lambda x: x, m.groups()))[0].upper() + ' АО'
+    return s
+  # def normalize_excess_info(s):
+  #   return s.replace('\d+, (.+)', '$1')
   
   facename = normalize_fio(facename)
   facename = normalize_inn(facename)
   facename = normalize_ooo(facename)
   facename = normalize_ip(facename)
-  return facename
+  facename = normalize_pao(facename)
+  facename = normalize_ao(facename)
+  return facename.strip()
 
 def normalize_string_field(field):
   field = remove_excess_spaces(field)
