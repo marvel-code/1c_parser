@@ -4,6 +4,9 @@ import os
 import sys
 import pandas as pd
 from utils import formatDate, normalize_facename, normalize_string_field
+import platform
+
+print('Platform:', platform.system())
 
 start_balance = None
 start_date = None
@@ -160,7 +163,7 @@ def convert(filename, mapper = {}):
             'receiver_id': make_acc_id(receiver_inn, receiver_acc),
         }
 
-    with open(f'input/{filename}', encoding='ansi') as f:
+    with open(f'input/{filename}', encoding=('ansi' if platform.system().lower() == 'windows' else 'windows-1251')) as f:
         f.readline()
         def parseLine(line: str):
             global target_acc
