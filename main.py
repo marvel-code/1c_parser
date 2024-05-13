@@ -272,6 +272,8 @@ all_faces = {}
 logos_excels = []
 
 for filename in os.listdir('input/'):
+    if filename.startswith('.'):
+        continue
     prev_acc_res_names = acc_res_names.copy()
     convert(filename, mapper)
 
