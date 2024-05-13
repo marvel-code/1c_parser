@@ -65,6 +65,8 @@ def convert(filename, mapper = {}):
         sender_id = make_acc_id(sender_inn, sender_acc)
         receiver_id = make_acc_id(receiver_inn, receiver_acc)
         comment = row['НазначениеПлатежа']
+        sender_orig = row.get('Плательщик', None) or row['Плательщик1']
+        receiver_orig = row.get('Получатель', None) or row['Получатель1']
 
         sender = acc_res_names.get(sender_id, None)
         if sender_acc == target_acc and sender != target_acc_name:
@@ -76,7 +78,7 @@ def convert(filename, mapper = {}):
           receiver = target_acc_name
 
         if not sender:
-          sender = row.get('Плательщик', None) or row['Плательщик1']
+          sender = sender_orig
 
           # Exception
           if not sender :
@@ -100,7 +102,7 @@ def convert(filename, mapper = {}):
           sender = normalize_facename(sender)
           acc_res_names[sender_id] = sender
         if not receiver:
-          receiver = row.get('Получатель', None) or row['Получатель1']
+          receiver = receiver_orig
 
           # Exception
           if  not receiver:
@@ -127,7 +129,7 @@ def convert(filename, mapper = {}):
         if sender == receiver:
           raise 'sender == receiver'
 
-        comment += f'. Плательщик: {sender}. Получатель: {receiver}'
+        comment += f'. Плательщик: {sender_orig}. Получатель: {receiver_orig}'
         return sender, sender_inn, sender_acc, receiver, receiver_inn, receiver_acc, comment
 
     def convert1CRowToVector(row):
