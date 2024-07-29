@@ -129,7 +129,7 @@ def convert(filename, mapper = {}):
         if sender == receiver:
           raise 'sender == receiver'
 
-        comment += f'. Плательщик: {sender_orig}. Получатель: {receiver_orig}'
+        # comment += f'. Плательщик: {sender_orig}. Получатель: {receiver_orig}'
         return sender, sender_inn, sender_acc, receiver, receiver_inn, receiver_acc, comment
 
     def convert1CRowToVector(row):
