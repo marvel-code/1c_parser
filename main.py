@@ -21,6 +21,10 @@ vectors = []
 faces = {}
 objects = {}
 
+accounts_by_names = {}
+
+
+
 def make_acc_id(inn, acc):
     return f"{inn}_{acc}"
 
@@ -70,15 +74,22 @@ def convert(filename, mapper = {}):
         sender = sender_orig
         receiver = receiver_orig
 
+        # Add account to name if name has few accounts
+        accounts_by_names[sender] = set(list(accounts_by_names.get(sender, [])) + [sender_acc])
+        accounts_by_names[receiver] = set(list(accounts_by_names.get(receiver, [])) + [receiver_acc])
+        if len(accounts_by_names[sender]) > 1: sender = f'{sender} РС{sender_acc}'
+        if len(accounts_by_names[receiver]) > 1: receiver = f'{receiver} РС{receiver_acc}'
+
         # Remove banned symbols
-        sender = sender.replace('/', '')
-        receiver = receiver.replace('/', '')
+        clean = lambda s: re.sub('\s+', ' ', re.sub(r'\/', '', s))
+        sender = clean(sender)
+        receiver = clean(receiver)
 
         # Add marker for target account name
         # print(sender_acc == target_acc, sender_acc, target_acc)
         # print(receiver_acc == target_acc, receiver_acc, target_acc)
-        # if sender_acc == target_acc: sender = f'__{sender_orig}'
-        # if receiver_acc == target_acc: receiver = f'__{sender_orig}'
+        # if sender_acc == target_acc: sender = f'__{sender}'
+        # if receiver_acc == target_acc: receiver = f'__{sender}'
         
         return sender, sender_inn, sender_acc, receiver, receiver_inn, receiver_acc, comment
 
