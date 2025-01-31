@@ -70,6 +70,10 @@ def convert(filename, mapper = {}):
         sender = sender_orig
         receiver = receiver_orig
 
+        # Remove banned symbols
+        sender = sender.replace('/', '')
+        receiver = receiver.replace('/', '')
+
         # Add marker for target account name
         # print(sender_acc == target_acc, sender_acc, target_acc)
         # print(receiver_acc == target_acc, receiver_acc, target_acc)
