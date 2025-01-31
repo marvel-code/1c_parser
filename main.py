@@ -5,8 +5,8 @@ import sys
 import pandas as pd
 from utils import formatDate, normalize_facename, normalize_string_field
 import platform
+import json
 
-print('Platform:', platform.system())
 
 start_balance = None
 start_date = None
@@ -67,69 +67,15 @@ def convert(filename, mapper = {}):
         comment = row['НазначениеПлатежа']
         sender_orig = row.get('Плательщик', None) or row['Плательщик1']
         receiver_orig = row.get('Получатель', None) or row['Получатель1']
+        sender = sender_orig
+        receiver = receiver_orig
 
-        sender = acc_res_names.get(sender_id, None)
-        if sender_acc == target_acc and sender != target_acc_name:
-          acc_res_names[sender_id] = target_acc_name
-          sender = target_acc_name
-        receiver = acc_res_names.get(receiver_id, None)
-        if receiver_acc == target_acc and receiver != target_acc_name:
-          acc_res_names[receiver_id] = target_acc_name
-          receiver = target_acc_name
-
-        if not sender:
-          sender = sender_orig
-
-          # Exception
-          if not sender :
-            print('not sender :', sender)
-          
-          # Use mapper
-          if sender in mapper:
-              sender = mapper[sender]
-
-          # Parse comment
-          if 'Взнос наличных через АТМ' in comment:
-              sender = 'Касса'
-
-          # Parse target account
-          if sender_acc == target_acc:
-              account_names.add(sender)
-              if sender_id not in acc_res_names:
-                acc_res_names[sender_id] = target_acc_name
-              sender = acc_res_names[sender_id]
-
-          sender = normalize_facename(sender)
-          acc_res_names[sender_id] = sender
-        if not receiver:
-          receiver = receiver_orig
-
-          # Exception
-          if  not receiver:
-            print('not sender or receiver:', sender, receiver)
-          
-          # Use mapper
-          if receiver in mapper:
-              receiver = mapper[receiver]
-
-          # Parse comment
-          if 'Отражено по операции с картой' in comment and 'Покупка.' in comment:
-              receiver = re.search(r'.+Покупка\. (.+)\..+', comment).groups()[0].strip()
-
-          # Parse target account
-          if sender_acc != target_acc:
-              account_names.add(receiver)
-              if receiver_id not in acc_res_names:
-                acc_res_names[receiver_id] = target_acc_name
-              receiver = acc_res_names[receiver_id]
-
-          receiver = normalize_facename(receiver)
-          acc_res_names[receiver_id] = receiver
-          
-        if sender == receiver:
-          raise 'sender == receiver'
-
-        # comment += f'. Плательщик: {sender_orig}. Получатель: {receiver_orig}'
+        # Add marker for target account name
+        # print(sender_acc == target_acc, sender_acc, target_acc)
+        # print(receiver_acc == target_acc, receiver_acc, target_acc)
+        # if sender_acc == target_acc: sender = f'__{sender_orig}'
+        # if receiver_acc == target_acc: receiver = f'__{sender_orig}'
+        
         return sender, sender_inn, sender_acc, receiver, receiver_inn, receiver_acc, comment
 
     def convert1CRowToVector(row):
@@ -177,7 +123,7 @@ def convert(filename, mapper = {}):
             line = line.strip()
             if target_acc is None and line[:len('РасчСчет')] == 'РасчСчет':
                 target_acc = line[len('РасчСчет')+1:]
-                print('РасчСчет', target_acc)
+                # print('РасчСчет', target_acc)
             if start_date is None and line[:len('ДатаНачала')] == "ДатаНачала":
                 start_date = line[len('ДатаНачала')+1:]
                 print('ДатаНачала', start_date)
@@ -194,7 +140,11 @@ def convert(filename, mapper = {}):
                 if line[:5] == 'Конец':
                     rows.append(row)
                     if row['Секция'] != "РасчСчет":
-                        vector = convert1CRowToVector(row)
+                        try:
+                          vector = convert1CRowToVector(row)
+                        except Exception as ex:
+                          json.dump(row, open('output/failed_row.json', 'w'), indent=2, ensure_ascii=False)
+                          raise ex
                         if vector is not None:
                             vectors.append(vector)
                             faces[vector['Отправитель']] = { 'Лицо': vector['Отправитель'] }
@@ -207,7 +157,8 @@ def convert(filename, mapper = {}):
         while line := f.readline():
             parseLine(line)
             
-    
+print("---")
+print('Platform:', platform.system())
 try:
     mappath = sys.argv[1] if 1 < len(sys.argv) else None
     df = pd.read_csv(mappath, header=None, sep='\t')
@@ -217,6 +168,7 @@ except Exception as ex:
     print('Empty mapper')
     print(ex)
     mapper = {}
+print("---")
 print()
 
 def print_balance_by_transactions(filename, vectors, target_acc):
@@ -276,6 +228,8 @@ logos_excels = []
 for filename in os.listdir('input/'):
     if filename.startswith('.'):
         continue
+    print(filename)
+
     prev_acc_res_names = acc_res_names.copy()
     convert(filename, mapper)
 
@@ -288,10 +242,9 @@ for filename in os.listdir('input/'):
     # if len(vectors) > 0:
     #   logos_excels.append((filename, vectors, faces, objects))
 
-    print(filename)
-    print('Сумма:', total_sum)
-    print('Остаток:', start_balance + total_sum)
-    print('Имена РС:', account_names)
+    # print('Сумма:', total_sum)
+    # print('Остаток:', start_balance + total_sum)
+    # print('Имена РС:', account_names)
     print()
 
 # for le in logos_excels:
